@@ -1,0 +1,12 @@
+# Archivos de compilación de CMake
+build/
+cmake-build-debug/
+cmake-build-release/
+
+# Archivos de configuración de CLion
+.idea/
+
+# Archivos binarios (ejecutables, etc.)
+*.out
+*.exe
+SOProy
