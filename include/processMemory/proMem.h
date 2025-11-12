@@ -6,6 +6,7 @@
 #define DOCUMENTOZU_PROCESSMEMORY_H
 
 #include <list>
+#include <queue>
 
 
 struct AProcess{
@@ -30,17 +31,22 @@ public:
     void imprimirProceso() const;
     [[nodiscard]] bool esNada() const;
     [[nodiscard]] int getCuanto() const;
+    void setId(int);
+    [[nodiscard]] int getId() const;
 };
 
 class Memoria {
     std::list<Proceso> listaProcesos;
+    std::queue<Proceso*> colaProcesosRB;
     static const int tamanoMinimo; //Tamaño minimo del split
-public:
     bool partirMemoria(std::list<Proceso>::iterator it, int tamRequerido);
+    void liberarProceso(Proceso*);
+public:
+    Memoria();
     void asignarProceso();
-    void liberarProceso(std::list<Proceso>::iterator);
     void juntar();
     void roundRobin();
+    void mostrar();
 };
 
 [[noreturn]] void processMemory();
