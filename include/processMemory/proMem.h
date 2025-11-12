@@ -34,7 +34,7 @@ public:
 
 class Memoria {
     std::list<Proceso> listaProcesos;
-    static const int tamanoMinimo = 32; //Tamaño minimo del split
+    static const int tamanoMinimo; //Tamaño minimo del split
 public:
     bool partirMemoria(std::list<Proceso>::iterator it, int tamRequerido);
     void asignarProceso();

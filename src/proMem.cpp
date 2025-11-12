@@ -66,6 +66,8 @@ int Proceso::getCuanto() const {return atributos.cuanto;}
 // ================================================================================================================
 // Clase Memoria
 
+const int Memoria::tamanoMinimo = 32;
+
 void Memoria::roundRobin() {
 
 }
