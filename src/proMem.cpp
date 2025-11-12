@@ -74,8 +74,28 @@ void Memoria::roundRobin() {
 // ================================================================================================================
 // Funcion ProcessMemory
 
-[[noreturn]] void processMemory() {
-    while (true) {
-
+bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
+    int tamActual = it->getMemoria();
+    int dirBase = it->getDirBase();
+    
+    //Verificar si es necesario partir la memoria
+    while(tamActual / 2 >= tamRequerido && tamActual / 2 >= tamanoMinimo){
+        tamActual /= 2;
+        
+        //Crear Buddies
+        Proceso bloque1(tamActual);
+        bloque1.setDirBase(dirBase);
+        
+        Proceso bloque2(tamActual);
+        bloque2.setDirBase(dirBase + tamActual);
+        
+        //Reemplazar el bloque original con los Buddies
+        *it = bloque1;
+        listaProcesos.insert(std::next(it), bloque2);
+        
+        //Actualizar variables para seguir dividiendo
+        tamActual = it->getMemoria();
+        dirBase = it->getDirBase();
     }
+    return true;
 }

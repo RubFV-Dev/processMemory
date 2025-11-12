@@ -2,12 +2,10 @@
 // Created by rubfv on 11/11/25.
 //
 
-
 #ifndef DOCUMENTOZU_PROCESSMEMORY_H
 #define DOCUMENTOZU_PROCESSMEMORY_H
 
 #include <list>
-
 
 
 struct AProcess{
@@ -36,8 +34,9 @@ public:
 
 class Memoria {
     std::list<Proceso> listaProcesos;
+    static const int tamanoMinimo = 32; //Tamaño minimo del split
 public:
-    void partirMemoria();
+    bool partirMemoria(std::list<Proceso>::iterator it, int tamRequerido);
     void asignarProceso();
     void liberarProceso(std::list<Proceso>::iterator);
     void juntar();
