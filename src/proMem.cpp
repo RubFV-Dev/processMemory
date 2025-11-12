@@ -7,6 +7,8 @@
 #include <iostream>
 #include <ostream>
 #include <queue>
+#include <thread>
+#include <chrono>
 
 std::queue<Proceso*> colaProcesos;
 
@@ -17,7 +19,7 @@ std::mt19937 gen(rd());
 // Clase proceso
 
 //Dar a la variable estatica id el valor de 0
-int Proceso::id =0;
+int Proceso::id =1;
 
 //Constructor por defecto, all to 0
 Proceso::Proceso() {atributos = {0,0,0,0};}
@@ -51,9 +53,15 @@ void Proceso::GenerarProceso() {
     id++;
 }
 
+void Proceso::setId(const int i) {atributos.id = i;}
+
+int Proceso::getId() const {return atributos.id;}
+
+
+
 //Metodo para imrprimir el proceso
 void Proceso::imprimirProceso() const {
-    std::cout<< "[" << atributos.id << "," << atributos.memoria << "," << atributos.cuanto << "]" <<std::endl;
+    std::cout<< "[" << atributos.id << "," << atributos.memoria << "," << atributos.cuanto << "]";
 }
 
 bool Proceso::esNada() const {return atributos.id==0 && atributos.cuanto==0;}
@@ -68,13 +76,80 @@ int Proceso::getCuanto() const {return atributos.cuanto;}
 
 const int Memoria::tamanoMinimo = 32;
 
-void Memoria::roundRobin() {
-
+Memoria::Memoria() {
+    const Proceso totMemoria(4096);
+    listaProcesos.insert(listaProcesos.begin(),totMemoria);
 }
 
-// Clase Memoria
-// ================================================================================================================
-// Funcion ProcessMemory
+void Memoria::mostrar() {
+    for (Proceso proceso : listaProcesos) {
+        proceso.imprimirProceso();
+    }
+    std::cout << std::endl;
+}
+
+void Memoria::asignarProceso() {
+    Proceso newProceso;
+    newProceso.GenerarProceso();
+    newProceso.imprimirProceso(); std::cout << ":" << std::endl;
+
+    auto mejorUbi = listaProcesos.end();
+
+
+    for(auto itr = listaProcesos.begin(); itr != listaProcesos.end(); ++itr) {
+        if (itr->esNada() && itr->getMemoria() >= newProceso.getMemoria()) {
+            if (mejorUbi == listaProcesos.end() || itr->getMemoria() < mejorUbi->getMemoria()) {
+                mejorUbi = itr;
+            }
+        }
+    }
+    if (mejorUbi == listaProcesos.end()) return;
+
+    partirMemoria(mejorUbi,newProceso.getMemoria());
+
+    int newBase = mejorUbi->getDirBase();
+    int newCapa = mejorUbi->getMemoria();
+
+    newProceso.setDirBase(newBase);
+
+    *mejorUbi = newProceso;
+
+    mejorUbi->setMemoria(newCapa);
+    colaProcesosRB.push(&*mejorUbi);
+}
+
+void Memoria::liberarProceso(Proceso * proc) {
+    const int memoria = proc->getMemoria();
+    *proc = Proceso(memoria);
+}
+
+
+void Memoria::roundRobin() {
+    if (colaProcesosRB.empty()) {
+        return;
+    }
+    std::cout << "<-";
+    for (int i = 0 ; i < colaProcesosRB.size(); i++) {
+        auto proceso = colaProcesosRB.front();
+        std::cout << "(" <<proceso->getId() << ")";
+        colaProcesosRB.pop();
+        colaProcesosRB.push(proceso);
+    }
+    std::cout << "<-" << std::endl << std::endl;
+
+    Proceso* proc = colaProcesosRB.front();
+
+    colaProcesosRB.pop();
+
+    proc->decrementarCuanto();
+
+    if (proc->getCuanto() == 0) {
+        liberarProceso(proc);
+    } else {
+        colaProcesosRB.push(proc);
+    }
+}
+
 
 bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
     int tamActual = it->getMemoria();
@@ -101,3 +176,21 @@ bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
     }
     return true;
 }
+
+// Clase Memoria
+// ================================================================================================================
+// Funcion ProcessMemory
+
+void processMemory() {
+    Memoria memoria;
+
+    using namespace std::chrono_literals;
+    memoria.mostrar();
+    while(true) {
+        memoria.asignarProceso();
+        memoria.mostrar();
+        memoria.roundRobin();
+        std::this_thread::sleep_for(5s);
+    }
+}
+
