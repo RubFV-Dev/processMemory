@@ -1,6 +1,11 @@
-//
-// Created by rubfv on 11/11/25.
-//
+/*
+ *  Proyecto: ProcessMemory
+ *  Equipo:
+ *  Rubén
+ *  Aranza
+ *  Laura
+ *  Jesús
+ */
 
 #ifndef DOCUMENTOZU_PROCESSMEMORY_H
 #define DOCUMENTOZU_PROCESSMEMORY_H
@@ -8,11 +13,13 @@
 #include <list>
 #include <queue>
 
+inline int tamanioTotalM, tamanioMaximoP, cuantoProc, maxCuanto;
 
 struct AProcess{
     int id;
     int cuanto;
     int memoria;
+    int espacio;
     int dirBase;
 };
 
@@ -20,35 +27,49 @@ class Proceso {
     AProcess atributos{};
     static int id;
 public:
+    // <| constructores |>
     Proceso();
     explicit Proceso(int);
+    // <| metodos del proceso |>
     void GenerarProceso();
-    void setMemoria(int);
-    [[nodiscard]] int getMemoria() const;
-    void setDirBase(int);
-    [[nodiscard]] int getDirBase() const;
     void decrementarCuanto();
     void imprimirProceso() const;
-    [[nodiscard]] bool esNada() const;
-    [[nodiscard]] int getCuanto() const;
-    void setId(int);
+    // <| gets |>
     [[nodiscard]] int getId() const;
+    [[nodiscard]] int getCuanto() const;
+    [[nodiscard]] int getMemoria() const;
+    [[nodiscard]] int getEspacio() const;
+    [[nodiscard]] int getDirBase() const;
+    // <| sets |>
+    void setId(int);
+    void setCuanto(int);
+    void setMemoria(int);
+    void setEspacio(int);
+    void setDirBase(int);
+    // <| validacion |>
+    [[nodiscard]] bool esEspacio() const;
 };
 
 class Memoria {
+    // <| Estructuras de datos |>
     std::list<Proceso> listaProcesos;
     std::queue<Proceso*> colaProcesosRB;
+    // <| variables estaticas |>
     static const int tamanoMinimo; //Tamaño minimo del split
+    // <| metodos privados de la memoria |>
     bool partirMemoria(std::list<Proceso>::iterator it, int tamRequerido);
     void liberarProceso(Proceso*);
 public:
+    // <| constructores |>
     Memoria();
+    // <| metodos de la memoria |>
     void asignarProceso();
-    void juntar();
+    void juntar(Proceso*);
     void roundRobin();
-    void mostrar();
+    void mostrar() const;
 };
 
+// <| Funcion global del programa |>
 [[noreturn]] void processMemory();
 
 #endif //DOCUMENTOZU_PROCESSMEMORY_H
