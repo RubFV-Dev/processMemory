@@ -13,7 +13,7 @@
 #include <list>
 #include <queue>
 
-inline int tamanioTotalM, tamanioMaximoP, cuantoProc, maxCuanto;
+inline int tamanioTotalM, tamanioMaximoP, cuantoProc, maxCuanto, administrador;
 
 struct AProcess{
     int id;
@@ -26,6 +26,8 @@ struct AProcess{
 class Proceso {
     AProcess atributos{};
     static int id;
+    static bool espera;
+    static AProcess *esperaProceso;
 public:
     // <| constructores |>
     Proceso();
@@ -40,12 +42,21 @@ public:
     [[nodiscard]] int getMemoria() const;
     [[nodiscard]] int getEspacio() const;
     [[nodiscard]] int getDirBase() const;
+
+    [[nodiscard]] static int getIdEspera();
+    [[nodiscard]] static int getCuantoEspera();
+    [[nodiscard]] static int getMemoriaEspera();
+
+    static bool getHayProcesoEsperando();
+    static AProcess* getProcesoEsperando();
     // <| sets |>
     void setId(int);
     void setCuanto(int);
     void setMemoria(int);
     void setEspacio(int);
     void setDirBase(int);
+    static void setHayProcesoEsperando(bool);
+    static void setProcesoEsperando(AProcess*);
     // <| validacion |>
     [[nodiscard]] bool esEspacio() const;
 };
@@ -58,6 +69,7 @@ class Memoria {
     static const int tamanoMinimo; //Tamaño minimo del split
     // <| metodos privados de la memoria |>
     bool partirMemoria(std::list<Proceso>::iterator it, int tamRequerido);
+    void unionCompleta();                    //para el lazzy buddy
     void liberarProceso(Proceso*);
 public:
     // <| constructores |>
