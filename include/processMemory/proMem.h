@@ -65,16 +65,17 @@ class Memoria {
     // <| Estructuras de datos |>
     std::list<Proceso> listaProcesos;
     std::queue<Proceso*> colaProcesosRB;
+    std::vector<int> D;                     //para el control de liberar en lazy
     // <| variables estaticas |>
     static const int tamanoMinimo; //Tamaño minimo del split
     // <| metodos privados de la memoria |>
     bool partirMemoria(std::list<Proceso>::iterator it, int tamRequerido);
-    void unionCompleta();                    //para el lazzy buddy
     void liberarProceso(Proceso*);
 public:
     // <| constructores |>
     Memoria();
     // <| metodos de la memoria |>
+    int calcularNivel(int);                    //para lazzy
     void asignarProceso();
     void juntar(Proceso*);
     void roundRobin();
