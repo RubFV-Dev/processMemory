@@ -14,6 +14,7 @@
 #include <queue>
 #include <thread>
 #include <chrono>
+#include <windows.h>
 
 // Colores
 #define RESET   "\033[0m"
@@ -118,6 +119,9 @@ const int Memoria::tamanoMinimo = 32;
 Memoria::Memoria() {
     const Proceso totMemoria(tamanioTotalM);
     listaProcesos.insert(listaProcesos.begin(),totMemoria);
+
+    int niveles = log2(tamanioTotalM / tamanoMinimo) + 1;       //el vector con el tamaño de niveles
+    D = std::vector<int>(niveles, 0);
 }
 
 void Memoria::mostrar() const {
@@ -128,25 +132,9 @@ void Memoria::mostrar() const {
     }
     std::cout << std::endl;
 }
-void Memoria::unionCompleta() {                             //PARA LAZYYY
-    // direcciones de los bloques libres
-    std::vector<int> direccionesLibres;
-    for (const auto& proc : listaProcesos) {
-        if (proc.esEspacio()) {
-            direccionesLibres.push_back(proc.getDirBase());
-        }
-    }
 
-    for (int dirBase : direccionesLibres) {
-        // Checa si existe dicha direccion en la memoria real
-        for (auto it = listaProcesos.begin(); it != listaProcesos.end(); ++it) {
-            if (it->getDirBase() == dirBase) {
-                juntar(&*it);
-                break; //ya junto debe salir
-            }
-        }
-    }
-
+int Memoria::calcularNivel(int tam) {       //regresa el numero de la posicion en donde debe ir ese bloque
+    return log2(tam/tamanoMinimo);
 }
 
 void Memoria::asignarProceso() {
@@ -166,7 +154,8 @@ void Memoria::asignarProceso() {
                   << " | Req: " << GREEN << newProceso.getMemoria() << " KB" << RESET
                   << " | Quantum: " << GREEN << newProceso.getCuanto() << RESET << "\n";
 
-    auto mejorUbi = listaProcesos.end();
+
+    auto mejorUbi = listaProcesos.end();                                                //encontro un bloque existente para ingresar el proceso(quizas puede partirse)
     for(auto itr = listaProcesos.begin(); itr != listaProcesos.end(); ++itr) {
         if (itr->esEspacio() && itr->getMemoria() >= newProceso.getMemoria()) {
             if (mejorUbi == listaProcesos.end() || itr->getMemoria() < mejorUbi->getMemoria()) {
@@ -174,38 +163,23 @@ void Memoria::asignarProceso() {
             }
         }
     }
+
     if (mejorUbi == listaProcesos.end()) {
-        if (administrador==2) {
-            std::cout << "      └── " << YELLOW << "Sin espacio, uniendo memoria..." << RESET << "\n";//LAZY
+        std::cout << "      └── " << RED << "Estado: No hay espacio (Rechazado) ❌" << RESET << "\n";
+        if (!Proceso::getHayProcesoEsperando()) {
+            AProcess* esperando= new AProcess();
+            esperando->id = newProceso.getId();
+            esperando->cuanto = newProceso.getCuanto();
+            esperando->memoria=newProceso.getMemoria();
+            Proceso::setHayProcesoEsperando(true);
+            Proceso::setProcesoEsperando(esperando);
 
-            unionCompleta();  // une completamente lo que se pueda unir
-
-            //vuelve a buscar
-            mejorUbi = listaProcesos.end();
-            for(auto itr = listaProcesos.begin(); itr != listaProcesos.end(); ++itr) {
-                if (itr->esEspacio() && itr->getMemoria() >= newProceso.getMemoria()) {
-                    if (mejorUbi == listaProcesos.end() || itr->getMemoria() < mejorUbi->getMemoria()) {
-                        mejorUbi = itr;
-                    }
-                }
-            }
+            std::cout << "      └── " << YELLOW << "Proceso " << newProceso.getId()
+          << " guardado en espera ⏳" << RESET << "\n";
         }
-        if (mejorUbi == listaProcesos.end()) {
-            std::cout << "      └── " << RED << "Estado: No hay espacio (Rechazado) ❌" << RESET << "\n";
-            if (!Proceso::getHayProcesoEsperando()) {
-                AProcess* esperando= new AProcess();
-                esperando->id = newProceso.getId();
-                esperando->cuanto = newProceso.getCuanto();
-                esperando->memoria=newProceso.getMemoria();
-                Proceso::setHayProcesoEsperando(true);
-                Proceso::setProcesoEsperando(esperando);
-
-                std::cout << "      └── " << YELLOW << "Proceso " << newProceso.getId()
-              << " guardado en espera ⏳" << RESET << "\n";
-            }
-            return;
-        }
+        return;
     }
+
     if (Proceso::getHayProcesoEsperando()) {//ya no hay esperando
         delete Proceso::getProcesoEsperando();
         Proceso::setProcesoEsperando(nullptr);
@@ -223,6 +197,7 @@ void Memoria::asignarProceso() {
 
     mejorUbi->setEspacio(newCapa);
     colaProcesosRB.push(&*mejorUbi);
+
 }
 
 void Memoria::liberarProceso(Proceso * proc) {
@@ -230,8 +205,29 @@ void Memoria::liberarProceso(Proceso * proc) {
     const int memoria = proc->getEspacio();     //Espacio real que ocupa
     *proc = Proceso(memoria);
     proc->setDirBase(dirBase);
-    if (administrador==1) {//es buddi normal
+    if (administrador==1) {//es buddy normal
         juntar(proc);
+    }
+    else {                  //si no es buddy normal es lazy
+         int nivel=calcularNivel(memoria);
+        if (D[nivel]>=2) {
+            D[nivel]-=2;
+        }
+        else if (D[nivel]==1) {
+            D[nivel]=0;
+            juntar(proc);       //intenta juntarlo con su buddy
+        }
+        else {                  //D en 0
+            D[nivel]=0;
+            juntar(proc);       //intentamos liberar globalmente este bloque liberado
+            // y buscamos un bloque extra de este tamaño que pueda unirse con su buddy
+            for ( auto it=listaProcesos.begin();it!=listaProcesos.end();it++) {
+                if (it->getId()==0 && it->getMemoria()==memoria) {              //si esta vacío y es del tamaño que buscamos
+                    juntar(&*it);
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -275,6 +271,7 @@ void Memoria::roundRobin() {
 
 bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
     int tamActual = it->getMemoria();
+    int copiaTamActual = tamActual;
     int dirBase = it->getDirBase();
     
     //Verificar si es necesario partir la memoria
@@ -295,6 +292,14 @@ bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
         //Actualizar variables para seguir dividiendo
         tamActual = it->getMemoria();
         dirBase = it->getDirBase();
+    }
+    int nivel= calcularNivel(tamActual);
+
+    if (tamActual!=copiaTamActual) {        //si el tamaño es distinto quiere decir que si tuvo que partir
+        D[nivel]++;                            //asignación global
+    }
+    else {
+        D[nivel]+=2;
     }
     return true;
 }
@@ -328,7 +333,9 @@ void Memoria::juntar(Proceso* proceso) {
 
     auto itN=listaProcesos.insert(itBuddie, unido);          //insertar despues del buddi(para mantener posicion)
 
-    juntar(&*itN);          //recursivo por si el buddi del nuevo bloque unido esta libre y asi
+    if (administrador==1) {             //si es buddy normal sigue juntando hasta mas no poder
+        juntar(&*itN);          //recursivo por si el buddy del nuevo bloque unido esta libre y asi
+    }
 
     //eliminar los bloques que se unieron
     listaProcesos.erase(itProceso);
@@ -341,10 +348,15 @@ void Memoria::juntar(Proceso* proceso) {
 // Funcion ProcessMemory
 
 void processMemory() {
-    #ifdef _WIN32
-        system("");  // Habilita colores ANSI en Windows
-        system("chcp 65001 > nul");  // Habilita UTF-8 para los caracteres especiales
-    #endif
+#ifdef _WIN32											//para activar colores y caracteres especiales
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+
+    SetConsoleOutputCP(65001);
+#endif
 
     int ciclo = 1;
     using namespace std::chrono_literals;
