@@ -2,7 +2,7 @@
 #include <iostream>
 
 #ifdef _WIN32
-#inlcude <conio.h>
+#include <conio.h>
 
 InputManager::InputManager() = default;
 
