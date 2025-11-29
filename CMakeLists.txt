@@ -10,6 +10,8 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 add_executable(SOProy src/main.cpp
         include/processMemory/proMem.h
         src/proMem.cpp
+        src/inputManager.cpp
+        include/processMemory/inputManager.h
 )
 
 target_include_directories(SOProy PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -75,14 +75,14 @@ public:
     // <| constructores |>
     Memoria();
     // <| metodos de la memoria |>
-    int calcularNivel(int);                    //para lazzy
+    static int calcularNivel(int);                    //para lazzy
     void asignarProceso();
-    void juntar(Proceso*);
+    void juntar(const Proceso*);
     void roundRobin();
     void mostrar() const;
 };
 
 // <| Funcion global del programa |>
-[[noreturn]] void processMemory();
+void processMemory();
 
 #endif //DOCUMENTOZU_PROCESSMEMORY_H
