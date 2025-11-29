@@ -9,12 +9,19 @@
 
 #include "random"
 #include "processMemory/proMem.h"
+#include "processMemory/inputManager.h"
+#include <cmath>
 #include <iostream>
 #include <ostream>
 #include <queue>
 #include <thread>
 #include <chrono>
+
+
+#ifdef _WIN32											//para activar colores y caracteres especiales
 #include <windows.h>
+#endif
+
 
 // Colores
 #define RESET   "\033[0m"
@@ -57,7 +64,7 @@ void Proceso::setDirBase(const int dir) {atributos.dirBase=dir;}
 
 //Para proceso en espera
 bool Proceso::getHayProcesoEsperando(){ return espera; }
-void Proceso::setHayProcesoEsperando(bool estado) { espera= estado; }
+void Proceso::setHayProcesoEsperando(const bool estado) { espera= estado; }
 
 AProcess* Proceso::getProcesoEsperando() { return esperaProceso; }
 void Proceso::setProcesoEsperando(AProcess* proc) { esperaProceso = proc; }
@@ -120,8 +127,8 @@ Memoria::Memoria() {
     const Proceso totMemoria(tamanioTotalM);
     listaProcesos.insert(listaProcesos.begin(),totMemoria);
 
-    int niveles = log2(tamanioTotalM / tamanoMinimo) + 1;       //el vector con el tamaño de niveles
-    D = std::vector<int>(niveles, 0);
+    const int niveles = static_cast<int>(std::log2(tamanioTotalM / tamanoMinimo) + 1);       //el vector con el tamaño de niveles
+    D = std::vector(niveles, 0);
 }
 
 void Memoria::mostrar() const {
@@ -133,8 +140,8 @@ void Memoria::mostrar() const {
     std::cout << std::endl;
 }
 
-int Memoria::calcularNivel(int tam) {       //regresa el numero de la posicion en donde debe ir ese bloque
-    return log2(tam/tamanoMinimo);
+int Memoria::calcularNivel(const int tam) {       //regresa el numero de la posicion en donde debe ir ese bloque
+    return static_cast<int>(std::log2(tam/tamanoMinimo));
 }
 
 void Memoria::asignarProceso() {
@@ -167,7 +174,7 @@ void Memoria::asignarProceso() {
     if (mejorUbi == listaProcesos.end()) {
         std::cout << "      └── " << RED << "Estado: No hay espacio (Rechazado) ❌" << RESET << "\n";
         if (!Proceso::getHayProcesoEsperando()) {
-            AProcess* esperando= new AProcess();
+            auto* esperando= new AProcess();
             esperando->id = newProceso.getId();
             esperando->cuanto = newProceso.getCuanto();
             esperando->memoria=newProceso.getMemoria();
@@ -221,9 +228,9 @@ void Memoria::liberarProceso(Proceso * proc) {
             D[nivel]=0;
             juntar(proc);       //intentamos liberar globalmente este bloque liberado
             // y buscamos un bloque extra de este tamaño que pueda unirse con su buddy
-            for ( auto it=listaProcesos.begin();it!=listaProcesos.end();it++) {
-                if (it->getId()==0 && it->getMemoria()==memoria) {              //si esta vacío y es del tamaño que buscamos
-                    juntar(&*it);
+            for (auto & listaProceso : listaProcesos) {
+                if (listaProceso.getId()==0 && listaProceso.getMemoria()==memoria) {              //si esta vacío y es del tamaño que buscamos
+                    juntar(&listaProceso);
                     break;
                 }
             }
@@ -236,7 +243,6 @@ void Memoria::roundRobin() {
     if (colaProcesosRB.empty()) {
         std::cout << "  " << BOLD << "➤ Atendiendo CPU:" << RESET << "\n";
         std::cout << "      " << BOLD << "CPU Ociosa (Cola vacía) 😴" << RESET << "\n";
-        return;
         return;
     }
     std::cout << "  " << BOLD << "➤ Cola de Listos (Round Robin):" << RESET << "\n      ";
@@ -271,7 +277,7 @@ void Memoria::roundRobin() {
 
 bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
     int tamActual = it->getMemoria();
-    int copiaTamActual = tamActual;
+    const int copiaTamActual = tamActual;
     int dirBase = it->getDirBase();
     
     //Verificar si es necesario partir la memoria
@@ -304,8 +310,8 @@ bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
     return true;
 }
 
-void Memoria::juntar(Proceso* proceso) {
-    int dirBuddie = proceso->getDirBase() ^ proceso->getMemoria();                  // direccion de su buddi
+void Memoria::juntar(const Proceso* proceso) {
+    const int dirBuddie = proceso->getDirBase() ^ proceso->getMemoria();                  // direccion de su buddi
     auto itBuddie = listaProcesos.end();
     for (auto itr = listaProcesos.begin(); itr != listaProcesos.end(); ++itr) {
         if (itr->getDirBase() == dirBuddie && itr->getMemoria() == proceso->getMemoria() && itr->esEspacio())  {
@@ -318,8 +324,8 @@ void Memoria::juntar(Proceso* proceso) {
         return;
     }
     // calculamos la nueva direccion
-    int nuevaDir=std::min( proceso->getDirBase(), itBuddie->getDirBase()); //sera la mas pequeña de las dos
-    int nuevoTam=itBuddie->getMemoria()*2;                      //ya que ambos tienen la misma memoria
+    const int nuevaDir=std::min( proceso->getDirBase(), itBuddie->getDirBase()); //sera la mas pequeña de las dos
+    const int nuevoTam=itBuddie->getMemoria()*2;                      //ya que ambos tienen la misma memoria
 
     //nuevo bloque unido
     Proceso unido(nuevoTam);
@@ -386,11 +392,16 @@ void processMemory() {
 
     std::cout << BOLD << "--- INICIO DE SIMULACIÓN (Buddy System + RR) ---" << RESET << std::endl;
     memoria.mostrar();
+
+    InputManager input;
+
+    int delayMs= 5000;
+    bool pausado = false;
+
     while(true) {
 
         std::cout << "\n" << YELLOW;
         std::cout << "╔══════════════════════════════════════════════════════════╗\n";
-        // Añade un 0 para padding (ej: 01, 02... 10, 11)
         std::cout << "║                     ⚡  CICLO " << (ciclo < 10 ? "0" : "") << ciclo << "  ⚡                       ║\n";
         std::cout << "╚══════════════════════════════════════════════════════════╝\n" << RESET;
         std::cout << "\n";
@@ -403,7 +414,55 @@ void processMemory() {
         memoria.mostrar();
         std::cout << "\n" << "────────────────────────────────────────────────────────────\n";
         ciclo++;
-        std::this_thread::sleep_for(5s);
+
+        int tiempoTranscurrido = 0;
+        while (tiempoTranscurrido < delayMs) {
+            if (InputManager::teclaPresionada()) {
+                char tecla = InputManager::leerTecla();
+                if (tecla >= 'A' && tecla <= 'Z') tecla += 32;
+
+                if (tecla == 'p') {
+                    pausado = !pausado;
+                    std::cout << (pausado ? RED "⏸ SISTEMA PAUSADO" : GREEN "▶ REANUDANDO...") << RESET << std::endl;
+                }
+                else if (tecla == '+') {
+                    if (delayMs > 1000) delayMs -= 500;
+                    else if (delayMs > 100) delayMs -= 100;
+                    else if (delayMs > 10) delayMs -= 10;
+                    else if (delayMs > 1) delayMs = 1;
+
+                    std::cout << CYAN << "⚡ Velocidad aumentada (Delay: " << delayMs << "ms)" << RESET << std::endl;
+
+                    if (tiempoTranscurrido >= delayMs) break;
+                }
+                else if (tecla == '-') {
+                    if (delayMs < 10) delayMs += 1;
+                    else if (delayMs < 100) delayMs += 10;
+                    else delayMs += 500;
+
+                    std::cout << CYAN << "🐢 Velocidad disminuida (Delay: " << delayMs << "ms)" << RESET << std::endl;
+                }
+                else if (tecla == 's') {
+                    std::cout << RED << "Finalizando simulación..." << RESET << std::endl;
+                    return;
+                }
+            }
+
+            if (pausado) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+
+            const int tiempoRestante = delayMs - tiempoTranscurrido;
+
+
+            if (int tiempoDormir = tiempoRestante > 100 ? 100 : tiempoRestante; tiempoDormir > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(tiempoDormir));
+                tiempoTranscurrido += tiempoDormir;
+            } else {
+                break;
+            }
+        }
     }
 }
 
