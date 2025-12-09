@@ -77,7 +77,12 @@ int Proceso::getMemoriaEspera() {return esperaProceso->memoria;}
 int Proceso::getDirBase() const {return atributos.dirBase;}
 
 //Metodo para decrementar el cuánto en uno
-void Proceso::decrementarCuanto() {atributos.cuanto = atributos.cuanto - cuantoProc;}
+void Proceso::decrementarCuanto() {
+    atributos.cuanto = atributos.cuanto - cuantoProc;
+    if (atributos.cuanto < 0) {
+        cuantosPerdidos+=abs(atributos.cuanto);
+    }
+}
 
 //Metodo para generar el proceso
 void Proceso::GenerarProceso() {
@@ -154,7 +159,7 @@ void Memoria::asignarProceso() {
         newProceso.setCuanto(Proceso::getCuantoEspera());
         newProceso.setMemoria(Proceso::getMemoriaEspera());
         newProceso.setId(Proceso::getIdEspera());
-        std::cout << BOLD << "  [+] Proceso En espera:" << RESET << "\n";
+        std::cout << BOLD << "  [-] Proceso En espera:" << RESET << "\n";
     }
 
     std::cout << "      └── ID: " << GREEN << newProceso.getId() << RESET
@@ -208,6 +213,7 @@ void Memoria::asignarProceso() {
 }
 
 void Memoria::liberarProceso(Proceso * proc) {
+    procesosTerminados++;
     const int dirBase = proc->getDirBase();
     const int memoria = proc->getEspacio();     //Espacio real que ocupa
     *proc = Proceso(memoria);
@@ -395,7 +401,7 @@ void processMemory() {
 
     InputManager input;
 
-    int delayMs= 5000;
+    int delayMs= 2000;
     bool pausado = false;
 
     while(true) {
@@ -443,7 +449,13 @@ void processMemory() {
                     std::cout << CYAN << "🐢 Velocidad disminuida (Delay: " << delayMs << "ms)" << RESET << std::endl;
                 }
                 else if (tecla == 's') {
+                    int ciclos=ciclo-1;
                     std::cout << RED << "Finalizando simulación..." << RESET << std::endl;
+                    std::cout << MAGENTA<<"Estadisticas: "<< RESET << std::endl;
+                    std::cout << CYAN << "Cuantos Perdidos durante la ejecución: "<<RESET<<BOLD<<cuantosPerdidos<< RESET<<std::endl;
+                    std::cout << CYAN<<"Se atendieron (terminaron su ejecucion) "<< RESET<<BOLD<< procesosTerminados <<RESET<<CYAN " procesos en "
+                        <<RESET<<BOLD<< ciclos <<RESET<<CYAN<<" ciclos"<<RESET<<std::endl;
+                    std::cout << BLUE <<"En promedio un proceso fue atendido en "<<RESET<<BOLD<<ciclos/procesosTerminados<<" ciclos"<<RESET;
                     return;
                 }
             }

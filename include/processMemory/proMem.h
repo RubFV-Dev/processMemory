@@ -13,7 +13,7 @@
 #include <list>
 #include <queue>
 
-inline int tamanioTotalM, tamanioMaximoP, cuantoProc, maxCuanto, administrador;
+inline int tamanioTotalM, tamanioMaximoP, cuantoProc, maxCuanto, administrador,cuantosPerdidos=0,procesosTerminados=0;
 
 struct AProcess{
     int id;
