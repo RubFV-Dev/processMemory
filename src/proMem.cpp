@@ -107,13 +107,47 @@ void Proceso::setEspacio(const int espacio) {atributos.espacio=espacio;}
 
 //Metodo para imrprimir el proceso
 void Proceso::imprimirProceso() const {
+    int espacioMostrar;
+
+    //checar tamaño
     if (esEspacio()) {
-        // Magenta para los huecos (libres)
-        std::cout << MAGENTA << "[" << atributos.id << "," << atributos.memoria << "," << atributos.cuanto << "]" << RESET;
+        espacioMostrar = atributos.memoria;
     } else {
-        // Cian para los procesos (ocupados)
-        std::cout << CYAN << "[" << atributos.id << "," << atributos.memoria<< "(" << atributos.espacio << ")" << "," << atributos.cuanto << "]" << RESET;
+        espacioMostrar = (atributos.espacio > 0) ? atributos.espacio : atributos.memoria;
     }
+
+    int anchoTot;
+    if (tamanioTotalM <= 32) {
+        anchoTot = 1;
+    } else {
+        //formula para la cantidad de cuadritos
+        int duplicaciones = static_cast<int>(log2(tamanioTotalM)) - 5;
+
+        anchoTot = 1 << duplicaciones;
+
+        //Maximo memoria 8
+        if (anchoTot > 256) {
+            anchoTot = 256;
+        }
+    }
+
+    int cantCuadros = (espacioMostrar * anchoTot) / tamanioTotalM;
+
+    if (cantCuadros == 0 && espacioMostrar > 0) {
+        cantCuadros = 1;
+    }
+
+    // 5. Dibujar
+    if (esEspacio()) {
+        for (int i = 0; i < cantCuadros; i++) {
+            std::cout << MAGENTA << "░" << RESET;
+        }
+    } else {
+        for (int i = 0; i < cantCuadros; i++) {
+            std::cout << CYAN << "█" << RESET;
+        }
+    }
+
 }
 
 bool Proceso::esEspacio() const {return atributos.id==0 && atributos.cuanto==0;}
@@ -253,13 +287,18 @@ void Memoria::roundRobin() {
     }
     std::cout << "  " << BOLD << "➤ Cola de Listos (Round Robin):" << RESET << "\n      ";
     std::cout << "IN <-- ";
+    Proceso* ultimoProceso = colaProcesosRB.back();
     for (int i = 0 ; i < colaProcesosRB.size(); i++) {
         auto proceso = colaProcesosRB.front();
-        std::cout << YELLOW << "[" << proceso->getId() << "]" << RESET << " ";
+
+        std::cout << YELLOW << "[" << proceso->getId() << "]"
+                  << (proceso != ultimoProceso ? "<-" : "")
+                  << RESET;
+
         colaProcesosRB.pop();
         colaProcesosRB.push(proceso);
     }
-    std::cout << "<-- OUT\n";
+    std::cout << " <-- OUT\n";
 
     Proceso* proc = colaProcesosRB.front();
 
@@ -405,7 +444,7 @@ void processMemory() {
     bool pausado = false;
 
     while(true) {
-
+        system("cls");
         std::cout << "\n" << YELLOW;
         std::cout << "╔══════════════════════════════════════════════════════════╗\n";
         std::cout << "║                     ⚡  CICLO " << (ciclo < 10 ? "0" : "") << ciclo << "  ⚡                       ║\n";
@@ -450,6 +489,7 @@ void processMemory() {
                 }
                 else if (tecla == 's') {
                     int ciclos=ciclo-1;
+                    system("cls");
                     std::cout << RED << "Finalizando simulación..." << RESET << std::endl;
                     std::cout << MAGENTA<<"Estadisticas: "<< RESET << std::endl;
                     std::cout << CYAN << "Cuantos Perdidos durante la ejecución: "<<RESET<<BOLD<<cuantosPerdidos<< RESET<<std::endl;
