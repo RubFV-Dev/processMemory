@@ -1,10 +1,10 @@
 /*
-*  Proyecto: ProcessMemory
- *  Equipo:
- *  Rubén
- *  Aranza
- *  Laura
- *  Jesús
+* Proyecto: ProcessMemory
+ * Equipo:
+ * Rubén
+ * Aranza
+ * Laura
+ * Jesús
  */
 
 #include "random"
@@ -107,13 +107,47 @@ void Proceso::setEspacio(const int espacio) {atributos.espacio=espacio;}
 
 //Metodo para imrprimir el proceso
 void Proceso::imprimirProceso() const {
+    int espacioMostrar;
+
+    //checar tamaño
     if (esEspacio()) {
-        // Magenta para los huecos (libres)
-        std::cout << MAGENTA << "[" << atributos.id << "," << atributos.memoria << "," << atributos.cuanto << "]" << RESET;
+        espacioMostrar = atributos.memoria;
     } else {
-        // Cian para los procesos (ocupados)
-        std::cout << CYAN << "[" << atributos.id << "," << atributos.memoria<< "(" << atributos.espacio << ")" << "," << atributos.cuanto << "]" << RESET;
+        espacioMostrar = (atributos.espacio > 0) ? atributos.espacio : atributos.memoria;
     }
+
+    int anchoTot;
+    if (tamanioTotalM <= 32) {
+        anchoTot = 1;
+    } else {
+        //formula para la cantidad de cuadritos
+        int duplicaciones = static_cast<int>(log2(tamanioTotalM)) - 5;
+
+        anchoTot = 1 << duplicaciones;
+
+        //Maximo memoria 8
+        if (anchoTot > 256) {
+            anchoTot = 256;
+        }
+    }
+
+    int cantCuadros = (espacioMostrar * anchoTot) / tamanioTotalM;
+
+    if (cantCuadros == 0 && espacioMostrar > 0) {
+        cantCuadros = 1;
+    }
+
+    // 5. Dibujar
+    if (esEspacio()) {
+        for (int i = 0; i < cantCuadros; i++) {
+            std::cout << MAGENTA << "░" << RESET;
+        }
+    } else {
+        for (int i = 0; i < cantCuadros; i++) {
+            std::cout << CYAN << "█" << RESET;
+        }
+    }
+
 }
 
 bool Proceso::esEspacio() const {return atributos.id==0 && atributos.cuanto==0;}
@@ -253,13 +287,18 @@ void Memoria::roundRobin() {
     }
     std::cout << "  " << BOLD << "➤ Cola de Listos (Round Robin):" << RESET << "\n      ";
     std::cout << "IN <-- ";
+    Proceso* ultimoProceso = colaProcesosRB.back();
     for (int i = 0 ; i < colaProcesosRB.size(); i++) {
         auto proceso = colaProcesosRB.front();
-        std::cout << YELLOW << "[" << proceso->getId() << "]" << RESET << " ";
+
+        std::cout << YELLOW << "[" << proceso->getId() << "]"
+                  << (proceso != ultimoProceso ? "<-" : "")
+                  << RESET;
+
         colaProcesosRB.pop();
         colaProcesosRB.push(proceso);
     }
-    std::cout << "<-- OUT\n";
+    std::cout << " <-- OUT\n";
 
     Proceso* proc = colaProcesosRB.front();
 
@@ -285,22 +324,22 @@ bool Memoria::partirMemoria(std::list<Proceso>::iterator it, int tamRequerido){
     int tamActual = it->getMemoria();
     const int copiaTamActual = tamActual;
     int dirBase = it->getDirBase();
-    
+
     //Verificar si es necesario partir la memoria
     while(tamActual / 2 >= tamRequerido && tamActual / 2 >= tamanoMinimo){
         tamActual /= 2;
-        
+
         //Crear Buddies
         Proceso bloque1(tamActual);
         bloque1.setDirBase(dirBase);
-        
+
         Proceso bloque2(tamActual);
         bloque2.setDirBase(dirBase + tamActual);
-        
+
         //Reemplazar el bloque original con los Buddies
         *it = bloque1;
         listaProcesos.insert(std::next(it), bloque2);
-        
+
         //Actualizar variables para seguir dividiendo
         tamActual = it->getMemoria();
         dirBase = it->getDirBase();
@@ -373,25 +412,127 @@ void processMemory() {
     int ciclo = 1;
     using namespace std::chrono_literals;
 
+    // INICIO VALIDACIONES (Traido de proMemval.cpp)
+    bool adminValido = false;
+    bool tamValido = false;
+    int opc;
 
-    std::cout << YELLOW << "➤" << RESET << BOLD <<" Seleccione el administrador de memoria(1-Buddy 2-Lazy Buddy): " << RESET;
-    std::cin >> administrador;
-    std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el tamanio de la memoria total (KB): " << RESET;
-    std::cin >> tamanioTotalM;
-    std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el tamanio maximo de la memoria de los procesos (KB): " << RESET;
-    std::cin >> tamanioMaximoP;
-    while (tamanioMaximoP > tamanioTotalM) {
-        std::cout << RED << "Ingrese el un valor no mas grande que el tamanio de la memoria total (" << tamanioTotalM << "): " << RESET;
-        std::cin >> tamanioMaximoP;
+    while (!adminValido) {
+        std::cout << YELLOW << "➤" << RESET << BOLD <<" Seleccione el administrador de memoria (1-Buddy 2-Lazy Buddy): " << RESET;
+        std::cin >> administrador;
+
+        //Evita que truene si se escriben caracteres
+        if (std::cin.fail()) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << RED << "No puede ingresar caracteres" << RESET << std::endl;
+            continue;   // Regresa al inicio del while
+        }
+
+        if (administrador == 1 || administrador == 2) {
+            adminValido = true;
+            while (!tamValido) {
+                std::cout << YELLOW << "➤" << RESET << BOLD <<" Seleccione el tamanio de la memoria total (KB): " << RESET << std::endl;
+
+                std::cout << BLUE << "| 1 MB (1024 KB) ........................... 1 |" << RESET << std::endl;
+                std::cout << BLUE << "| 4 MB (4096 KB) ........................... 2 |" << RESET << std::endl;
+                std::cout << BLUE << "| 8 MB (8192 KB) ........................... 3 |" << RESET << std::endl;
+                std::cout << YELLOW << "| Eleccion: " << RESET;
+                std::cin >> opc;
+
+                if (std::cin.fail()) {
+                    std::cin.clear();
+                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    std::cout << RED << "No puede ingresar caracteres" << RESET << std::endl;
+                    continue;
+                }
+
+                switch (opc) {
+                    case 1:
+                        tamanioTotalM = 1024;
+                        tamValido = true;
+                        std::cout << MAGENTA << "Tamanio seleccionado: 1024 KB" << RESET << std::endl;
+                        break;
+
+                    case 2:
+                        tamanioTotalM = 4096;
+                        tamValido = true;
+                        std::cout << MAGENTA << "Tamanio seleccionado: 4096 KB" << RESET << std::endl; break;
+
+                    case 3:
+                        tamanioTotalM = 8192;
+                        tamValido = true;
+                        std::cout << MAGENTA << "Tamanio seleccionado: 8192 KB" << RESET << std::endl; break;
+
+                    default: std::cout << RED << "Opcion no valida!" << RESET << std::endl;
+                                tamValido = false;
+                                continue; break;
+                }
+                std::cout << std::endl;
+
+                while(true) {
+                     std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el tamanio maximo de la memoria de los procesos (KB): " << RESET;
+                    std::cin >> tamanioMaximoP;
+
+                    if (std::cin.fail()) {
+                        std::cin.clear();
+                        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                        std::cout << RED << "No puede ingresar caracteres" << RESET << std::endl;
+                        continue;
+                    }
+                    break;
+                }
+
+
+                while (tamanioMaximoP > tamanioTotalM) {
+                    std::cout << RED << "Ingrese el un valor no mas grande que el tamanio de la memoria total (" << tamanioTotalM << "): " << RESET;
+                    std::cin >> tamanioMaximoP;
+                    if (std::cin.fail()) {
+                        std::cin.clear();
+                        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                        std::cout << RED << "No puede ingresar caracteres" << RESET << std::endl;
+                        continue;
+                    }
+                }
+
+                while (true) {
+                    std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el cuanto de procesamiento a asignar por ciclo: " << RESET;
+                    std::cin >> cuantoProc;
+
+                    if (!std::cin.fail())
+                        break;
+
+                    std::cin.clear();
+                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                    std::cout << RED << "No puede ingresar caracteres" << RESET << std::endl;
+                }
+
+                while (true) {
+                     std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el cuanto maximo de los procesos: " << RESET;
+                     std::cin >> maxCuanto;
+
+                    if (std::cin.fail()) {
+                        std::cin.clear();
+                        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                        std::cout << RED << "No puede ingresar caracteres" << RESET << std::endl;
+                        continue;
+                    }
+
+                     while (maxCuanto < cuantoProc) {
+                         std::cout << RED << "Ingrese el un valor no mas chico que el cuanto de procesamiento (" << cuantoProc << "): " << RESET;
+                         std::cin >> maxCuanto;
+                     }
+                    break;
+                }
+            }
+        }
+        else {
+            std::cout << RED << "Administrador de memoria invalido" << RESET << std::endl;
+            adminValido = false;
+        }
     }
-    std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el cuanto de procesamiento a asignar por ciclo: " << RESET;
-    std::cin >> cuantoProc;
-    std::cout << YELLOW << "➤" << RESET << BOLD <<" Ingrese el cuanto maximo de los procesos: " << RESET;
-    std::cin >> maxCuanto;
-    while (maxCuanto < cuantoProc) {
-        std::cout << RED << "Ingrese el un valor no mas chico que el cuanto de procesamiento (" << cuantoProc << "): " << RESET;
-        std::cin >> maxCuanto;
-    }
+    // FIN VALIDACIONES
+
     std::cout << std::endl;
 
     Memoria memoria;
@@ -405,7 +546,7 @@ void processMemory() {
     bool pausado = false;
 
     while(true) {
-
+        system("cls");
         std::cout << "\n" << YELLOW;
         std::cout << "╔══════════════════════════════════════════════════════════╗\n";
         std::cout << "║                     ⚡  CICLO " << (ciclo < 10 ? "0" : "") << ciclo << "  ⚡                       ║\n";
@@ -450,6 +591,7 @@ void processMemory() {
                 }
                 else if (tecla == 's') {
                     int ciclos=ciclo-1;
+                    system("cls");
                     std::cout << RED << "Finalizando simulación..." << RESET << std::endl;
                     std::cout << MAGENTA<<"Estadisticas: "<< RESET << std::endl;
                     std::cout << CYAN << "Cuantos Perdidos durante la ejecución: "<<RESET<<BOLD<<cuantosPerdidos<< RESET<<std::endl;
@@ -477,4 +619,3 @@ void processMemory() {
         }
     }
 }
-
